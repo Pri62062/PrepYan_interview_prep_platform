@@ -18,50 +18,59 @@ public class QuestionController {
     @Autowired
     private QuestionService service;
 
-    // ── Health check ──────────────────────────
+    // ✅ Health check
     @GetMapping("/test")
     public ResponseEntity<String> test() {
         return ResponseEntity.ok("Questions API OK ✅");
     }
 
-    // ── GET ALL (paginated — memory safe) ─────
-    // Returns List<QuestionDTO> — no answer field exposed
+    // ✅ GET ALL (safe DTO + no heavy fields)
     @GetMapping
     public ResponseEntity<List<QuestionDTO>> getAll() {
-        System.out.println("📦 FETCH ALL QUESTIONS");
         return ResponseEntity.ok(service.getAllDTO());
     }
 
-    // ── GET BY ID (returns full Question with answer) ──
+    // ✅ GET BY ID (SAFE + DTO + no crash)
     @GetMapping("/{id}")
-    public ResponseEntity<Question> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(service.getById(id));
+    public ResponseEntity<?> getById(@PathVariable Long id) {
+        QuestionDTO dto = service.getByIdDTO(id);
+
+        if (dto == null) {
+            return ResponseEntity.status(404).body("Question not found");
+        }
+
+        return ResponseEntity.ok(dto);
     }
 
-    // ── ADD (admin) ────────────────────────────
+    // ✅ ADD
     @PostMapping
     public ResponseEntity<Question> add(@RequestBody Question q) {
         return ResponseEntity.ok(service.save(q));
     }
 
-    // ── UPDATE (admin) ─────────────────────────
+    // ✅ UPDATE
     @PutMapping("/{id}")
-    public ResponseEntity<Question> update(
+    public ResponseEntity<?> update(
             @PathVariable Long id,
             @RequestBody Question q) {
-        return ResponseEntity.ok(service.update(id, q));
+
+        Question updated = service.update(id, q);
+
+        if (updated == null) {
+            return ResponseEntity.status(404).body("Question not found");
+        }
+
+        return ResponseEntity.ok(updated);
     }
 
-    // ── DELETE (admin) ─────────────────────────
+    // ✅ DELETE
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.ok("Deleted successfully");
     }
 
-    // ── FILTER by topic / difficulty ───────────
-    // FIX 1: Removed __ __ formatting around method calls
-    // FIX 2: Service now returns List<QuestionDTO> directly — no manual mapping needed
+    // ✅ FILTER (already safe)
     @GetMapping("/filter")
     public ResponseEntity<List<QuestionDTO>> filter(
             @RequestParam(required = false) String topic,
@@ -76,7 +85,6 @@ public class QuestionController {
         } else if (difficulty != null) {
             result = service.getByDifficulty(difficulty);
         } else {
-            // No filter given — return limited set (memory safe)
             result = service.getLimited(20);
         }
 

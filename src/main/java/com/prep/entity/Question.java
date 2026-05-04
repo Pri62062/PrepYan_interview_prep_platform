@@ -19,8 +19,10 @@ public class Question {
     private String difficulty;
 
     @Lob
+    @Basic(fetch = FetchType.LAZY)
     private String description;
 
     @Lob
+    @Basic(fetch = FetchType.LAZY)
     private String answer;
 }
