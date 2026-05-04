@@ -18,72 +18,100 @@ public class QuestionController {
     @Autowired
     private QuestionService service;
 
-    // ✅ GET ALL
+    // 🔥 HEALTH CHECK (IMPORTANT for debugging)
+    @GetMapping("/test")
+    public ResponseEntity<String> test() {
+        return ResponseEntity.ok("TEST OK");
+    }
+
+    // ✅ GET ALL (SAFE)
     @GetMapping
     public ResponseEntity<?> getAll() {
-
-        System.out.println("📦 TEST HIT");
-
-        return ResponseEntity.ok("API working fine");
+        try {
+            System.out.println("📦 GET ALL QUESTIONS");
+            return ResponseEntity.ok(service.getAllDTO());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error fetching questions");
+        }
     }
 
     // ✅ GET BY ID
     @GetMapping("/{id}")
-    public ResponseEntity<Question> getById(@PathVariable Long id) {
-
-        System.out.println("🔍 GET QUESTION BY ID: " + id);
-
-        return ResponseEntity.ok(service.getById(id));
+    public ResponseEntity<?> getById(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(service.getById(id));
+        } catch (Exception e) {
+            return ResponseEntity.status(404).body("Question not found");
+        }
     }
 
     // ✅ ADD
     @PostMapping
-    public ResponseEntity<Question> add(@RequestBody Question q) {
-        return ResponseEntity.ok(service.save(q));
+    public ResponseEntity<?> add(@RequestBody Question q) {
+        try {
+            return ResponseEntity.ok(service.save(q));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error saving question");
+        }
     }
 
     // ✅ UPDATE
     @PutMapping("/{id}")
-    public ResponseEntity<Question> update(@PathVariable Long id, @RequestBody Question q) {
-        return ResponseEntity.ok(service.update(id, q));
+    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody Question q) {
+        try {
+            return ResponseEntity.ok(service.update(id, q));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error updating question");
+        }
     }
 
     // ✅ DELETE
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> delete(@PathVariable Long id) {
-        service.delete(id);
-        return ResponseEntity.ok("Deleted");
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+        try {
+            service.delete(id);
+            return ResponseEntity.ok("Deleted successfully");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error deleting question");
+        }
     }
 
-    // ✅ FILTER
+    // ✅ FILTER (SAFE + LIMITED)
     @GetMapping("/filter")
-    public ResponseEntity<List<QuestionDTO>> filter(
+    public ResponseEntity<?> filter(
             @RequestParam(required = false) String topic,
             @RequestParam(required = false) String difficulty) {
 
-        List<Question> list;
+        try {
+            List<Question> list;
 
-        if (topic != null && difficulty != null) {
-            list = service.getByTopicAndDifficulty(topic, difficulty);
-        } else if (topic != null) {
-            list = service.getByTopic(topic);
-        } else if (difficulty != null) {
-            list = service.getByDifficulty(difficulty);
-        } else {
-            list = service.getLimited(10);
+            if (topic != null && difficulty != null) {
+                list = service.getByTopicAndDifficulty(topic, difficulty);
+            } else if (topic != null) {
+                list = service.getByTopic(topic);
+            } else if (difficulty != null) {
+                list = service.getByDifficulty(difficulty);
+            } else {
+                list = service.getLimited(5); // 🔥 reduce load
+            }
+
+            List<QuestionDTO> result = list.stream()
+                    .map(q -> new QuestionDTO(
+                            q.getId(),
+                            q.getTitle(),
+                            q.getTopic(),
+                            q.getDifficulty(),
+                            q.getDescription(),
+                            q.getAnswer()
+                    ))
+                    .toList();
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error filtering questions");
         }
-
-        List<QuestionDTO> result = list.stream()
-                .map(q -> new QuestionDTO(
-                        q.getId(),
-                        q.getTitle(),
-                        q.getTopic(),
-                        q.getDifficulty(),
-                        null,
-                        null
-                ))
-                .toList();
-
-        return ResponseEntity.ok(result);
     }
 }
