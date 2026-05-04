@@ -1,17 +1,11 @@
 package com.prep.service;
 
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.client.RestTemplate;
 
-import reactor.core.publisher.Mono;
-import reactor.util.retry.Retry;
+import java.util.*;
 
 @Service
 public class AIService {
@@ -19,88 +13,47 @@ public class AIService {
     @Value("${groq.api.key}")
     private String apiKey;
 
-    private final WebClient webClient;
-
-    public AIService() {
-        this.webClient = WebClient.builder()
-                .baseUrl("https://api.groq.com/openai/v1")
-                .build();
-    }
+    private final RestTemplate restTemplate = new RestTemplate();
 
     private String callAI(String prompt) {
 
         System.out.println("🟡 Prompt: " + prompt);
 
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", "llama-3.1-8b-instant");
+        String url = "https://api.groq.com/openai/v1/chat/completions";
 
-        // 🔥 REDUCED (IMPORTANT)
-        requestBody.put("max_tokens", 400);
-        requestBody.put("temperature", 0.7);
+        Map<String, Object> body = new HashMap<>();
+        body.put("model", "llama-3.1-8b-instant");
+        body.put("max_tokens", 400);
+        body.put("temperature", 0.7);
 
-        requestBody.put("messages", List.of(
+        body.put("messages", List.of(
                 Map.of("role", "user", "content", prompt)
         ));
 
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(apiKey);
+
+        HttpEntity<Map<String, Object>> request =
+                new HttpEntity<>(body, headers);
+
         try {
-            return webClient.post()
-                    .uri("/chat/completions")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .bodyValue(requestBody)
-                    .retrieve()
+            ResponseEntity<Map> response =
+                    restTemplate.postForEntity(url, request, Map.class);
 
-                    // RATE LIMIT
-                    .onStatus(status -> status.value() == 429, response ->
-                            Mono.error(new RuntimeException("RATE_LIMIT"))
-                    )
+            Map res = response.getBody();
 
-                    // OTHER ERRORS
-                    .onStatus(status -> status.isError(), response ->
-                            Mono.error(new RuntimeException("API_ERROR"))
-                    )
+            List<Map<String, Object>> choices =
+                    (List<Map<String, Object>>) res.get("choices");
 
-                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+            Map<String, Object> message =
+                    (Map<String, Object>) choices.get(0).get("message");
 
-                    // 🔥 SAFE TIMEOUT
-                    .timeout(Duration.ofSeconds(20))
-
-                    // 🔥 RETRY (LIMITED)
-                    .retryWhen(
-                            Retry.fixedDelay(1, Duration.ofSeconds(2))
-                                    .filter(ex -> ex.getMessage() != null &&
-                                            (ex.getMessage().contains("RATE_LIMIT") ||
-                                             ex.getMessage().toLowerCase().contains("timeout")))
-                    )
-
-                    // 🔥 FALLBACK (CRITICAL)
-                    .onErrorReturn(Map.of(
-                            "choices", List.of(
-                                    Map.of("message",
-                                            Map.of("content", "⚠️ AI temporarily unavailable, try again.")))
-                    ))
-
-                    // EXTRACT RESPONSE
-                    .map(res -> {
-                        try {
-                            List<Map<String, Object>> choices =
-                                    (List<Map<String, Object>>) res.get("choices");
-
-                            Map<String, Object> message =
-                                    (Map<String, Object>) choices.get(0).get("message");
-
-                            return message.get("content").toString();
-
-                        } catch (Exception e) {
-                            return "Error parsing AI response";
-                        }
-                    })
-
-                    .block();
+            return message.get("content").toString();
 
         } catch (Exception e) {
             e.printStackTrace();
-            return "⚠️ AI service error";
+            return "⚠️ AI temporarily unavailable";
         }
     }
 
