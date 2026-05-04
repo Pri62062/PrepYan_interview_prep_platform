@@ -6,6 +6,7 @@ import com.prep.repository.QuestionRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,27 +17,53 @@ public class QuestionService {
     @Autowired
     private QuestionRepository repo;
 
-    // ✅ SAFE: limited + DTO
+    // ✅ FAST + LIGHTWEIGHT LIST API (IMPORTANT)
     public List<QuestionDTO> getAllDTO() {
-        return repo.findAll(PageRequest.of(0, 10))
+
+        System.out.println("📦 Fetching questions list...");
+
+        return repo.findAll(PageRequest.of(0, 10, Sort.by("id").descending()))
                 .getContent()
                 .stream()
                 .map(q -> new QuestionDTO(
-                	    q.getId(),
-                	    q.getTitle(),
-                	    q.getTopic(),
-                	    q.getDifficulty(),
-                	    q.getDescription(),   // ✅ ADD
-                	    q.getAnswer()         // ✅ ADD
-                	))
+                        q.getId(),
+                        q.getTitle(),
+                        q.getTopic(),
+                        q.getDifficulty(),
+                        null,   // ❌ removed heavy data for speed
+                        null
+                ))
                 .toList();
     }
 
-    // ✅ LIMIT METHOD (extra safety)
-    public List<Question> getLimited(int size) {
-        return repo.findAll(PageRequest.of(0, size)).getContent();
+    // ✅ FULL DATA (DETAIL PAGE)
+    public QuestionDTO getFullById(Long id) {
+
+        System.out.println("🔍 Fetching question by ID: " + id);
+
+        Question q = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Question not found"));
+
+        return new QuestionDTO(
+                q.getId(),
+                q.getTitle(),
+                q.getTopic(),
+                q.getDifficulty(),
+                q.getDescription(),
+                q.getAnswer()
+        );
     }
 
+    // ✅ LIMIT METHOD (SAFE)
+    public List<Question> getLimited(int size) {
+
+        System.out.println("📊 Fetching limited questions: " + size);
+
+        return repo.findAll(PageRequest.of(0, size, Sort.by("id").descending()))
+                .getContent();
+    }
+
+    // ✅ BASIC CRUD
     public Question getById(Long id) {
         return repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Question not found"));
@@ -48,11 +75,13 @@ public class QuestionService {
 
     public Question update(Long id, Question q) {
         Question existing = getById(id);
+
         existing.setTitle(q.getTitle());
         existing.setDescription(q.getDescription());
         existing.setTopic(q.getTopic());
         existing.setDifficulty(q.getDifficulty());
         existing.setAnswer(q.getAnswer());
+
         return repo.save(existing);
     }
 
@@ -60,16 +89,25 @@ public class QuestionService {
         repo.deleteById(id);
     }
 
-    // ✅ FIXED: DB filtering (NO findAll().stream())
+    // ✅ FILTER (DB LEVEL - FAST)
     public List<Question> getByTopic(String topic) {
+
+        System.out.println("📚 Filter by topic: " + topic);
+
         return repo.findByTopicIgnoreCase(topic);
     }
 
     public List<Question> getByDifficulty(String difficulty) {
+
+        System.out.println("⚙️ Filter by difficulty: " + difficulty);
+
         return repo.findByDifficultyIgnoreCase(difficulty);
     }
 
     public List<Question> getByTopicAndDifficulty(String topic, String difficulty) {
+
+        System.out.println("🎯 Filter by topic & difficulty: " + topic + " / " + difficulty);
+
         return repo.findByTopicIgnoreCaseAndDifficultyIgnoreCase(topic, difficulty);
     }
 }

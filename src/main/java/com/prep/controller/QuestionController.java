@@ -3,16 +3,8 @@ package com.prep.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import com.prep.dto.QuestionDTO;
 import com.prep.entity.Question;
@@ -26,40 +18,46 @@ public class QuestionController {
     @Autowired
     private QuestionService service;
 
-    // ✅ GET ALL (SAFE - DTO)
+    // ✅ GET ALL
     @GetMapping
-    public List<QuestionDTO> getAll() {
-        return service.getAllDTO();
+    public ResponseEntity<List<QuestionDTO>> getAll() {
+
+        System.out.println("📦 GET ALL QUESTIONS HIT");
+
+        return ResponseEntity.ok(service.getAllDTO());
     }
 
-    // ✅ GET BY ID (FULL DATA)
+    // ✅ GET BY ID
     @GetMapping("/{id}")
-    public Question getById(@PathVariable Long id) {
-        return service.getById(id);
+    public ResponseEntity<Question> getById(@PathVariable Long id) {
+
+        System.out.println("🔍 GET QUESTION BY ID: " + id);
+
+        return ResponseEntity.ok(service.getById(id));
     }
 
-    // ✅ ADD QUESTION
+    // ✅ ADD
     @PostMapping
-    public Question add(@RequestBody Question q) {
-        return service.save(q);
+    public ResponseEntity<Question> add(@RequestBody Question q) {
+        return ResponseEntity.ok(service.save(q));
     }
 
-    // ✅ UPDATE QUESTION
+    // ✅ UPDATE
     @PutMapping("/{id}")
-    public Question update(@PathVariable Long id, @RequestBody Question q) {
-        return service.update(id, q);
+    public ResponseEntity<Question> update(@PathVariable Long id, @RequestBody Question q) {
+        return ResponseEntity.ok(service.update(id, q));
     }
 
-    // ✅ DELETE QUESTION
+    // ✅ DELETE
     @DeleteMapping("/{id}")
-    public String delete(@PathVariable Long id) {
+    public ResponseEntity<String> delete(@PathVariable Long id) {
         service.delete(id);
-        return "Question deleted successfully";
+        return ResponseEntity.ok("Deleted");
     }
 
-    // ✅ SAFE FILTER (FINAL FIX)
+    // ✅ FILTER
     @GetMapping("/filter")
-    public List<QuestionDTO> filter(
+    public ResponseEntity<List<QuestionDTO>> filter(
             @RequestParam(required = false) String topic,
             @RequestParam(required = false) String difficulty) {
 
@@ -72,18 +70,20 @@ public class QuestionController {
         } else if (difficulty != null) {
             list = service.getByDifficulty(difficulty);
         } else {
-            list = service.getLimited(10);   // ✅ FIXED (NO MORE getAll())
+            list = service.getLimited(10);
         }
 
-        return list.stream()
-                .map(q ->new QuestionDTO(
-                	    q.getId(),
-                	    q.getTitle(),
-                	    q.getTopic(),
-                	    q.getDifficulty(),
-                	    q.getDescription(),   // ✅ ADD
-                	    q.getAnswer()         // ✅ ADD
-                	))
+        List<QuestionDTO> result = list.stream()
+                .map(q -> new QuestionDTO(
+                        q.getId(),
+                        q.getTitle(),
+                        q.getTopic(),
+                        q.getDifficulty(),
+                        null,
+                        null
+                ))
                 .toList();
+
+        return ResponseEntity.ok(result);
     }
 }

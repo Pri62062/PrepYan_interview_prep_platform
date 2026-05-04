@@ -30,11 +30,10 @@ public class AIService {
     // 🔥 COMMON METHOD
     private String callAI(String prompt) {
 
-        System.out.println("Prompt: " + prompt);
+        System.out.println("🟡 Prompt: " + prompt);
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", "llama-3.1-8b-instant");
-
         requestBody.put("max_tokens", 1000);
         requestBody.put("temperature", 0.7);
 
@@ -54,7 +53,7 @@ public class AIService {
                     .onStatus(status -> status.value() == 429, response ->
                             response.bodyToMono(String.class)
                                     .flatMap(error -> {
-                                        System.out.println("⚠️ Rate limit hit");
+                                        System.out.println("⚠️ Rate limit hit: " + error);
                                         return Mono.error(new RuntimeException("RATE_LIMIT"));
                                     })
                     )
@@ -62,23 +61,31 @@ public class AIService {
                     // ❌ OTHER ERRORS
                     .onStatus(status -> status.isError(), response ->
                             response.bodyToMono(String.class)
-                                    .map(error -> new RuntimeException("API Error: " + error))
+                                    .flatMap(error -> {
+                                        System.out.println("❌ API Error: " + error);
+                                        return Mono.error(new RuntimeException("API_ERROR"));
+                                    })
                     )
 
-                    // ✅ SAFE TYPE
+                    // ✅ RESPONSE TYPE
                     .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
 
-                    // 🔥 TIMEOUT
-                    .timeout(Duration.ofSeconds(10))
+                    // 🔥 TIMEOUT FIX (IMPORTANT)
+                    .timeout(Duration.ofSeconds(40))
 
-                    // 🔥 RETRY LOGIC
+                    // 🔥 RETRY (RATE LIMIT + TIMEOUT)
                     .retryWhen(
-                            Retry.fixedDelay(2, Duration.ofSeconds(2))
+                            Retry.fixedDelay(2, Duration.ofSeconds(3))
                                     .filter(ex ->
                                             ex.getMessage() != null &&
-                                            ex.getMessage().contains("RATE_LIMIT")
+                                            (ex.getMessage().contains("RATE_LIMIT") ||
+                                             ex.getMessage().toLowerCase().contains("timeout"))
                                     )
                     )
+
+                    // 🔍 DEBUG LOGS
+                    .doOnError(err -> System.out.println("🔥 ERROR: " + err.getMessage()))
+                    .doOnSuccess(res -> System.out.println("✅ SUCCESS RESPONSE"))
 
                     // ✅ EXTRACT RESPONSE
                     .map(res -> {
@@ -106,11 +113,18 @@ public class AIService {
 
             e.printStackTrace();
 
-            if (e.getMessage() != null && e.getMessage().contains("RATE_LIMIT")) {
-                return "⚠️ Too many requests. Please wait and try again.";
+            if (e.getMessage() != null) {
+
+                if (e.getMessage().contains("RATE_LIMIT")) {
+                    return "⚠️ Too many requests. Please wait and try again.";
+                }
+
+                if (e.getMessage().toLowerCase().contains("timeout")) {
+                    return "⚠️ AI is taking too long. Please try again.";
+                }
             }
 
-            return "Error calling AI API: " + e.getMessage();
+            return "❌ Error calling AI API. Try again.";
         }
     }
 
