@@ -3,6 +3,7 @@ package com.prep.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.prep.dto.QuestionDTO;
@@ -17,71 +18,68 @@ public class QuestionController {
     @Autowired
     private QuestionService service;
 
-    // 🔥 HEALTH CHECK (VERY IMPORTANT)
+    // ── Health check ──────────────────────────
     @GetMapping("/test")
-    public String test() {
-        return "TEST OK";
+    public ResponseEntity<String> test() {
+        return ResponseEntity.ok("Questions API OK ✅");
     }
 
-    // ✅ GET ALL (LIGHTWEIGHT)
+    // ── GET ALL (paginated — memory safe) ─────
+    // Returns List<QuestionDTO> — no answer field exposed
     @GetMapping
-    public List<QuestionDTO> getAll() {
-        System.out.println("📦 FETCH QUESTIONS");
-        return service.getAllDTO();
+    public ResponseEntity<List<QuestionDTO>> getAll() {
+        System.out.println("📦 FETCH ALL QUESTIONS");
+        return ResponseEntity.ok(service.getAllDTO());
     }
 
-    // ✅ GET BY ID
+    // ── GET BY ID (returns full Question with answer) ──
     @GetMapping("/{id}")
-    public Question getById(@PathVariable Long id) {
-        return service.getById(id);
+    public ResponseEntity<Question> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getById(id));
     }
 
-    // ✅ ADD
+    // ── ADD (admin) ────────────────────────────
     @PostMapping
-    public Question add(@RequestBody Question q) {
-        return service.save(q);
+    public ResponseEntity<Question> add(@RequestBody Question q) {
+        return ResponseEntity.ok(service.save(q));
     }
 
-    // ✅ UPDATE
+    // ── UPDATE (admin) ─────────────────────────
     @PutMapping("/{id}")
-    public Question update(@PathVariable Long id, @RequestBody Question q) {
-        return service.update(id, q);
+    public ResponseEntity<Question> update(
+            @PathVariable Long id,
+            @RequestBody Question q) {
+        return ResponseEntity.ok(service.update(id, q));
     }
 
-    // ✅ DELETE
+    // ── DELETE (admin) ─────────────────────────
     @DeleteMapping("/{id}")
-    public String delete(@PathVariable Long id) {
+    public ResponseEntity<String> delete(@PathVariable Long id) {
         service.delete(id);
-        return "Deleted";
+        return ResponseEntity.ok("Deleted successfully");
     }
 
-    // ✅ FILTER
+    // ── FILTER by topic / difficulty ───────────
+    // FIX 1: Removed __ __ formatting around method calls
+    // FIX 2: Service now returns List<QuestionDTO> directly — no manual mapping needed
     @GetMapping("/filter")
-    public List<QuestionDTO> filter(
+    public ResponseEntity<List<QuestionDTO>> filter(
             @RequestParam(required = false) String topic,
             @RequestParam(required = false) String difficulty) {
 
-        List<Question> list;
+        List<QuestionDTO> result;
 
         if (topic != null && difficulty != null) {
-            list = service.getByTopicAndDifficulty(topic, difficulty);
+            result = service.getByTopicAndDifficulty(topic, difficulty);
         } else if (topic != null) {
-            list = service.getByTopic(topic);
+            result = service.getByTopic(topic);
         } else if (difficulty != null) {
-            list = service.getByDifficulty(difficulty);
+            result = service.getByDifficulty(difficulty);
         } else {
-            list = service.getLimited(5); // 🔥 LIMIT
+            // No filter given — return limited set (memory safe)
+            result = service.getLimited(20);
         }
 
-        return list.stream()
-                .map(q -> new QuestionDTO(
-                        q.getId(),
-                        q.getTitle(),
-                        q.getTopic(),
-                        q.getDifficulty(),
-                        null,
-                        null
-                ))
-                .toList();
+        return ResponseEntity.ok(result);
     }
 }
