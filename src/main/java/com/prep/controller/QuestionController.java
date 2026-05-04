@@ -20,11 +20,11 @@ public class QuestionController {
 
     // ✅ GET ALL
     @GetMapping
-    public ResponseEntity<List<QuestionDTO>> getAll() {
+    public ResponseEntity<?> getAll() {
 
-        System.out.println("📦 GET ALL QUESTIONS HIT");
+        System.out.println("📦 TEST HIT");
 
-        return ResponseEntity.ok(service.getAllDTO());
+        return ResponseEntity.ok("API working fine");
     }
 
     // ✅ GET BY ID
