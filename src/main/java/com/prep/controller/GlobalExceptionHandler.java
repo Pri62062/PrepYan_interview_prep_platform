@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 
-@ControllerAdvice
+@RestControllerAdvice   // ✅ FIXED (VERY IMPORTANT)
 public class GlobalExceptionHandler {
 
     // 🔥 Handle RuntimeException
