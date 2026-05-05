@@ -12,7 +12,7 @@ import com.prep.service.QuestionService;
 
 @RestController
 @RequestMapping("/api/questions")
-@CrossOrigin(origins = "*")
+
 public class QuestionController {
 
     @Autowired

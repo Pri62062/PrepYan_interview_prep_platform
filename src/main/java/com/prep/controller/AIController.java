@@ -8,7 +8,7 @@ import com.prep.service.AIService;
 
 @RestController
 @RequestMapping("/api/ai")
-@CrossOrigin(origins = "*")
+
 public class AIController {
 
     @Autowired

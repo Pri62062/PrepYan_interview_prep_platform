@@ -18,7 +18,7 @@ import java.util.Map;
  * Response: { "status": "UP", "time": "..." }
  */
 @RestController
-@CrossOrigin(origins = "*")
+
 public class HealthController {
 
     @GetMapping("/api/health")

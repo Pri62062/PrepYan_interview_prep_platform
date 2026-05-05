@@ -9,7 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/interview")
-@CrossOrigin
+
 public class InterviewController {
 
     @Autowired
