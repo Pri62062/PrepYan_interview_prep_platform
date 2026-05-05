@@ -10,11 +10,17 @@ import java.util.*;
 @Service
 public class AIService {
 
-    // ✅ FIXED: Direct ENV read (Render safe)
+    // ✅ ENV (Render safe)
     private final String groqApiKey = System.getenv("GROQ_API_KEY");
 
-    private static final String GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String MODEL = "mixtral-8x7b-32768";
+    // ✅ Dynamic model (future safe)
+    private final String MODEL = System.getenv().getOrDefault(
+            "GROQ_MODEL",
+            "llama-3.1-8b-instant"   // 🔥 BEST FREE-FRIENDLY MODEL
+    );
+
+    private static final String GROQ_URL =
+            "https://api.groq.com/openai/v1/chat/completions";
 
     private static final int RETRIES = 3;
 
@@ -39,7 +45,8 @@ public class AIService {
     // 🔥 EXPLAIN CONCEPT
     // ─────────────────────────────────────────
     public String explainConcept(String topic) {
-        String prompt = "Explain for Java interview: " + topic + ". Include definition, internals, and use cases.";
+        String prompt = "Explain for Java interview: " + topic +
+                ". Include definition, internals, and use cases.";
         return callWithRetry("You are PrepYan AI interview tutor.", prompt);
     }
 
@@ -50,12 +57,13 @@ public class AIService {
         String prompt = String.format(
                 "Evaluate this interview answer.\nQuestion: %s\nAnswer: %s\n\n" +
                         "Give: Score/10, What was good, What was missing, Model answer.",
-                question, userAnswer);
+                question, userAnswer
+        );
         return callWithRetry("You are an expert interview evaluator.", prompt);
     }
 
     // ─────────────────────────────────────────
-    // 🔁 RETRY WRAPPER (STRONG)
+    // 🔁 RETRY LOGIC
     // ─────────────────────────────────────────
     private String callWithRetry(String system, String userMessage) {
 
@@ -67,9 +75,8 @@ public class AIService {
             } catch (Exception e) {
                 lastErr = e;
 
-                // 🔁 exponential backoff
                 try {
-                    Thread.sleep(2000L * i);
+                    Thread.sleep(2000L * i); // exponential backoff
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                 }
@@ -86,9 +93,8 @@ public class AIService {
     @SuppressWarnings("unchecked")
     private String callGroq(String system, String userMessage) {
 
-        // ❌ SAFETY CHECK
         if (groqApiKey == null || groqApiKey.isBlank()) {
-            throw new RuntimeException("GROQ_API_KEY is missing in environment variables!");
+            throw new RuntimeException("GROQ_API_KEY missing in environment!");
         }
 
         // ✅ TIMEOUT (Render optimized)
@@ -115,7 +121,7 @@ public class AIService {
 
         body.put("messages", messages);
 
-        // ✅ REQUEST
+        // ✅ API CALL
         ResponseEntity<Map> resp = rest.exchange(
                 GROQ_URL,
                 HttpMethod.POST,
@@ -123,13 +129,12 @@ public class AIService {
                 Map.class
         );
 
-        // ❌ STATUS CHECK
         if (!resp.getStatusCode().is2xxSuccessful()) {
             throw new RuntimeException("Groq API error: " + resp.getStatusCode());
         }
 
         if (resp.getBody() == null) {
-            throw new RuntimeException("Empty response from Groq API");
+            throw new RuntimeException("Empty response from Groq");
         }
 
         // ✅ SAFE PARSE
@@ -137,33 +142,23 @@ public class AIService {
             Object choicesObj = resp.getBody().get("choices");
 
             if (!(choicesObj instanceof List)) {
-                throw new RuntimeException("Invalid response format (choices missing)");
+                throw new RuntimeException("Invalid response format");
             }
 
-            List<Map<String, Object>> choices = (List<Map<String, Object>>) choicesObj;
+            List<Map<String, Object>> choices =
+                    (List<Map<String, Object>>) choicesObj;
 
             if (choices.isEmpty()) {
-                throw new RuntimeException("No choices returned from Groq");
+                throw new RuntimeException("No response from AI");
             }
 
-            Object messageObj = choices.get(0).get("message");
+            Map<String, Object> message =
+                    (Map<String, Object>) choices.get(0).get("message");
 
-            if (!(messageObj instanceof Map)) {
-                throw new RuntimeException("Invalid message format");
-            }
-
-            Map<String, Object> message = (Map<String, Object>) messageObj;
-
-            Object content = message.get("content");
-
-            if (content == null) {
-                throw new RuntimeException("Empty AI response content");
-            }
-
-            return content.toString();
+            return message.get("content").toString();
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse Groq response: " + e.getMessage());
+            throw new RuntimeException("Failed to parse AI response: " + e.getMessage());
         }
     }
 }
